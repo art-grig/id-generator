@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  postgres:
+      image: postgres
+      container_name: postgres
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: postgres
+      ports:
+        - "5432:5432"
+
+  mssql-linux:
+    image: mcr.microsoft.com/mssql/server
+    ports:
+      - 1433:1433
+    logging:
+      driver: "none"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "Password123!"
+
