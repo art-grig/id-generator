@@ -4,11 +4,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Qanaqer.IdGenerator.Extensions;
+using Qanaqer.IdGenerator.Abstractions;
 
 namespace Qanaqer.IdGenerator.Postgres
 {
     using DbContext = Microsoft.EntityFrameworkCore.DbContext;
-    public class PgSequenceManager<TDbContext> : ISequenceManager
+    internal class PgSequenceManager<TDbContext> : ISequenceManager
         where TDbContext : DbContext
     {
         private readonly DbContext _dbContext;

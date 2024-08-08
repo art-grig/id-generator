@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Qanaqer.IdGenerator
+namespace Qanaqer.IdGenerator.Abstractions
 {
     public interface ISequenceManager
     {

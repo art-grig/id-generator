@@ -10,11 +10,13 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using Qanaqer.IdGenerator.Abstractions;
 
 namespace Qanaqer.IdGenerator.SqlServer
 {
     using DbContext = Microsoft.EntityFrameworkCore.DbContext;
-    public class SqlServerIdGenerator<TDbContext, TEnum> : IIdGenerator<TEnum> where TEnum : Enum
+    public class SqlServerIdGenerator<TEnum, TDbContext> : IIdGenerator<TEnum> 
+        where TEnum : Enum
         where TDbContext : DbContext
     {
         private readonly IServiceProvider _serviceProvider;
@@ -40,17 +42,9 @@ namespace Qanaqer.IdGenerator.SqlServer
             _schemaName = SqlServerSequenceManager<TDbContext>.GetSchemaName<TEnum>();
         }
 
-        private async Task<T> WrapFuncInScope<T>(Func<IServiceProvider, Task<T>> func)
+        private Task<long> FetchNextRange(TEnum sequence, long range)
         {
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                return await func(scope.ServiceProvider);
-            }
-        }
-
-        private Task<long> NextRange(TEnum sequence, long range)
-        {
-            return WrapFuncInScope((sp) =>
+            return _serviceProvider.ExecuteInNewScope((sp) =>
             {
                 var dbContext = sp.GetRequiredService<TDbContext>();
                 return dbContext.ExecuteCommandAsync(async (cmd) =>
@@ -73,19 +67,16 @@ namespace Qanaqer.IdGenerator.SqlServer
 
         public async Task<long> NextId(TEnum sequence)
         {
-            var batchSize = _idGenOptions.Value.BatchSize <= 0 ? 1 : _idGenOptions.Value.BatchSize;
+            var batchSize = _idGenOptions.Value.BatchSize;
             if (_idMap[sequence].Value % batchSize == 0)
             {
                 await _semaphoreMap[sequence].WaitAsync();
                 try
                 {
                     if (_idMap[sequence].Value % batchSize == 0) {
-                        var stopWatch = new Stopwatch();
-                        stopWatch.Start();
-                        var curId = await NextRange(sequence, batchSize);
-                        stopWatch.Stop();
-                        Interlocked.Exchange(ref _idMap[sequence].Value, curId);
-                        return curId;
+                        var nextId = await FetchNextRange(sequence, batchSize);
+                        Interlocked.Exchange(ref _idMap[sequence].Value, nextId);
+                        return nextId;
                     }
                 }
                 finally

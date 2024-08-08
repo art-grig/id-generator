@@ -1,8 +1,11 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Qanaqer.IdGenerator.Abstractions;
 using Qanaqer.IdGenerator.Postgres;
+using Qanaqer.IdGenerator.Postgres.DependencyInjection;
 using Qanaqer.IdGenerator.SqlServer;
+using Qanaqer.IdGenerator.SqlServer.DependencyInjection;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Xunit.Abstractions;
@@ -30,16 +33,14 @@ namespace Qanaqer.IdGenerator.Tests
         }
 
         [Fact]
-        public async Task IdGenerator_MsSql_Succes()
+        public async Task IdGenerator_MsSql_Success()
         {
             var services = new ServiceCollection();
             services.AddDbContext<TestDbContext>(c =>
                 c.UseSqlServer("Server=localhost;Database={0};user id=sa;password=Password123!;Encrypt=False;"));
-            services.AddSingleton<IIdGenerator<MsSqlSequences>, SqlServerIdGenerator<TestDbContext, MsSqlSequences>>();
-            services.AddScoped<ISequenceManager, SqlServerSequenceManager<TestDbContext>>();
-            services.Configure<IdGeneratorOptions>(o =>
+            services.AddSqlServerIdGenerator<MsSqlSequences, TestDbContext>(new IdGeneratorOptions
             {
-                o.BatchSize = 10000;
+                BatchSize = 1000,
             });
             var sp = services.BuildServiceProvider();
 
@@ -63,20 +64,19 @@ namespace Qanaqer.IdGenerator.Tests
             stopWatch.Stop();
             _output.WriteLine("Elapsed: {0}", stopWatch.ElapsedMilliseconds);
 
-            Enumerable.SequenceEqual(bug.Select(i => (int)i).OrderBy(i => i), Enumerable.Range(1, 10000)).Should().BeTrue();
+            Enumerable.SequenceEqual(bug.Select(i => (int)i)
+                .OrderBy(i => i), Enumerable.Range(1, 10000)).Should().BeTrue();
         }
 
         [Fact]
-        public async Task IdGenerator_Postgres_Succes()
+        public async Task IdGenerator_Postgres_Success()
         {
             var services = new ServiceCollection();
             services.AddDbContext<TestDbContext>(c =>
                 c.UseNpgsql("Host=localhost;Port=5432;Database=test;Username=postgres;Password=postgres;"));
-            services.AddSingleton<IIdGenerator<PostgresSequences>, PgIdGenerator<TestDbContext, PostgresSequences>>();
-            services.AddScoped<ISequenceManager, PgSequenceManager<TestDbContext>>();
-            services.Configure<IdGeneratorOptions>(o =>
+            services.AddPgIdGenerator<PostgresSequences, TestDbContext>(new IdGeneratorOptions
             {
-                o.BatchSize = 1000;
+                BatchSize = 1000,
             });
             var sp = services.BuildServiceProvider();
 

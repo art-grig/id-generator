@@ -1,4 +1,5 @@
-﻿using Qanaqer.IdGenerator.Extensions;
+﻿using Qanaqer.IdGenerator.Abstractions;
+using Qanaqer.IdGenerator.Extensions;
 using System;
 using System.Collections.Generic;
 using System.Linq;

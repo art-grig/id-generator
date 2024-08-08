@@ -11,11 +11,13 @@ using System.Threading.Tasks;
 using Qanaqer.IdGenerator.Extensions;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using Qanaqer.IdGenerator.Abstractions;
 
 namespace Qanaqer.IdGenerator.Postgres
 {
     using DbContext = Microsoft.EntityFrameworkCore.DbContext;
-    public class PgIdGenerator<TDbContext, TEnum> : IIdGenerator<TEnum> where TEnum : Enum
+    internal class PgIdGenerator<TEnum, TDbContext> : IIdGenerator<TEnum> 
+        where TEnum : Enum
         where TDbContext : DbContext
     {
         private readonly IServiceProvider _serviceProvider;
@@ -42,17 +44,9 @@ namespace Qanaqer.IdGenerator.Postgres
             _schemaName = PgSequenceManager<TDbContext>.GetSchemaName<TEnum>();
         }
 
-        private async Task<T> WrapFuncInScope<T>(Func<IServiceProvider, Task<T>> func)
+        private Task<long> FetchNextRange(TEnum sequence, long range)
         {
-            using (var scope = _serviceProvider.CreateScope())
-            {
-                return await func(scope.ServiceProvider);
-            }
-        }
-
-        private Task<long> FetchNextIdFromDb(TEnum sequence, long range)
-        {
-            return WrapFuncInScope((sp) =>
+            return _serviceProvider.ExecuteInNewScope((sp) =>
             {
                 var dbContext = sp.GetRequiredService<TDbContext>();
                 return dbContext.ExecuteCommandAsync(async (cmd) =>
@@ -75,7 +69,7 @@ namespace Qanaqer.IdGenerator.Postgres
 
         public async Task<long> NextId(TEnum sequence)
         {
-            var batchSize = _idGenOptions.Value.BatchSize <= 0 ? 1 : _idGenOptions.Value.BatchSize;
+            var batchSize = _idGenOptions.Value.BatchSize;
 
             if (_idQuquesMap[sequence].TryDequeue(out var nextId))
             {
@@ -91,7 +85,7 @@ namespace Qanaqer.IdGenerator.Postgres
                         return newFetchedId;
                     }
 
-                    var fetchedNextId = await FetchNextIdFromDb(sequence, batchSize);
+                    var fetchedNextId = await FetchNextRange(sequence, batchSize);
                     return fetchedNextId;
                 }
                 finally
